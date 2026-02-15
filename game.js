@@ -82,9 +82,45 @@ const keys = {};
 addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-canvas.onclick = () => {
-  ws.send(JSON.stringify({ type: "shoot", x: me.x, y: me.y }));
-};
+let bullets = [];
+
+canvas.addEventListener("click", e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const angle = Math.atan2(my - me.y, mx - me.x);
+
+  ws.send(JSON.stringify({
+    type: "shoot",
+    x: me.x,
+    y: me.y,
+    angle
+  }));
+});
+
+function spawnBullet(x,y,angle,owner){
+  bullets.push({
+    x,y,
+    vx: Math.cos(angle)*10,
+    vy: Math.sin(angle)*10,
+    owner
+  });
+}
+
+function updateBullets(){
+  bullets.forEach(b=>{
+    b.x+=b.vx;
+    b.y+=b.vy;
+  });
+
+  bullets = bullets.filter(b=>b.x>0 && b.x<canvas.width && b.y>0 && b.y<canvas.height);
+}
+
+function drawBullets(){
+  ctx.fillStyle="yellow";
+  bullets.forEach(b=>ctx.fillRect(b.x,b.y,4,4));
+}
 
 function loop() {
   requestAnimationFrame(loop);
