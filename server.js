@@ -12,8 +12,21 @@ const wss = new WebSocket.Server({ server });
 
 // GAME SERVERS
 const MODES = ["ffa", "tdm", "ctf", "parkour"];
+const MAPS = ["Dojo","Forest","Factory","Ruins"];
 
-let servers = {};
+function randomMap(){
+  return MAPS[Math.floor(Math.random() * MAPS.length)];
+}
+
+// Assign a random map to each server
+let servers = {
+  ffa:{
+    "Server 1":{players:{}, map: randomMap()},
+    "Server 2":{players:{}, map: randomMap()},
+    "Server 3":{players:{}, map: randomMap()},
+    "Server 4":{players:{}, map: randomMap()}
+  }
+};
 
 for (let mode of MODES) {
   servers[mode] = {
@@ -79,25 +92,30 @@ wss.on("connection", ws => {
     }
 
     // SHOOTING
-    if (data.type === "shoot" && currentMode) {
-      for (let pid in servers[currentMode][currentServer].players) {
-        if (pid !== id) {
-          let p = servers[currentMode][currentServer].players[pid];
-          let dist = Math.hypot(p.x - data.x, p.y - data.y);
+  if (data.type === "shoot" && currentMode && currentServer) {
+  // Loop through all players in the server
+  for (let pid in servers[currentMode][currentServer].players) {
+    if (pid !== id) {
+      let p = servers[currentMode][currentServer].players[pid];
 
-          if (dist < 60) {
-            p.hp -= 25;
-            if (p.hp <= 0) {
-              p.hp = 100;
-              p.x = 100 + Math.random() * 800;
-              p.y = 200;
-            }
-          }
+      const dx = p.x - data.x;
+      const dy = p.y - data.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 60) {  // bullet hit radius
+        p.hp -= 25;
+
+        if (p.hp <= 0) {
+          p.hp = 100;
+          p.x = Math.random()*800 + 100; // respawn position
+          p.y = 200;
         }
       }
-      broadcast();
     }
-  });
+  }
+  // Broadcast updated player data
+  broadcast();
+}
 
   ws.on("close", () => {
     if (currentMode && currentServer) {
