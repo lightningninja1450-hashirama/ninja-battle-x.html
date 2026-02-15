@@ -4,98 +4,102 @@ const WebSocket = require("ws");
 const app = express();
 app.use(express.static("public"));
 
-const server = app.listen(3000, () =>
-  console.log("Game running at http://localhost:3000")
-);
+const server = app.listen(3000, () => {
+  console.log("Server running at http://localhost:3000");
+});
 
 const wss = new WebSocket.Server({ server });
 
-let servers = {
-  "US-East": { players:{} },
-  "US-West": { players:{} },
-  "EU": { players:{} },
-  "Asia": { players:{} }
-};
+const MODES = ["ffa", "tdm", "ctf", "parkour"];
+
+let servers = {};
+MODES.forEach(mode => {
+  servers[mode] = {
+    "Server 1": { players: {} },
+    "Server 2": { players: {} },
+    "Server 3": { players: {} }
+  };
+});
 
 wss.on("connection", ws => {
-  let myId = Math.random().toString(36).slice(2);
-  let myServer = null;
+  let id = Math.random().toString(36).slice(2);
+  let currentMode = null;
+  let currentServer = null;
 
-  ws.send(JSON.stringify({ type:"serverList", servers:getCounts() }));
+  ws.send(JSON.stringify({ type: "hello" }));
 
   ws.on("message", msg => {
     const data = JSON.parse(msg);
 
-    if(data.type==="join"){
-      myServer = data.server;
-      servers[myServer].players[myId] = {
-        id:myId,
-        x:200+Math.random()*600,
-        y:200,
-        hp:100,
-        score:0
+    if (data.type === "getServers") {
+      const list = {};
+      for (let s in servers[data.mode]) {
+        list[s] = Object.keys(servers[data.mode][s].players).length;
+      }
+
+      ws.send(JSON.stringify({
+        type: "serverList",
+        servers: list
+      }));
+    }
+
+    if (data.type === "join") {
+      currentMode = data.mode;
+      currentServer = data.server;
+
+      servers[currentMode][currentServer].players[id] = {
+        id, x: 200, y: 300, hp: 100
       };
 
       ws.send(JSON.stringify({
-        type:"init",
-        id:myId,
-        server:myServer,
-        players:servers[myServer].players
+        type: "init",
+        id,
+        players: servers[currentMode][currentServer].players
       }));
-
-      broadcast(myServer);
     }
 
-    if(data.type==="move" && myServer){
-      let p = servers[myServer].players[myId];
-      if(!p) return;
-      p.x=data.x; p.y=data.y;
-      broadcast(myServer);
+    if (data.type === "move" && currentMode) {
+      let p = servers[currentMode][currentServer].players[id];
+      if (!p) return;
+
+      p.x = data.x;
+      p.y = data.y;
+      broadcast();
     }
 
-    if(data.type==="shoot" && myServer){
-      for(let id in servers[myServer].players){
-        if(id!==myId){
-          let p=servers[myServer].players[id];
-          let d=Math.hypot(p.x-data.x,p.y-data.y);
-          if(d<50){
-            p.hp-=25;
-            if(p.hp<=0){
-              p.hp=100;
-              p.x=100+Math.random()*900;
-              p.y=200;
+    if (data.type === "shoot" && currentMode) {
+      for (let pid in servers[currentMode][currentServer].players) {
+        if (pid !== id) {
+          let p = servers[currentMode][currentServer].players[pid];
+          if (Math.hypot(p.x - data.x, p.y - data.y) < 60) {
+            p.hp -= 25;
+            if (p.hp <= 0) {
+              p.hp = 100;
+              p.x = Math.random()*900+100;
+              p.y = 300;
             }
           }
         }
       }
-      broadcast(myServer);
+      broadcast();
     }
   });
 
-  ws.on("close",()=>{
-    if(myServer){
-      delete servers[myServer].players[myId];
-      broadcast(myServer);
+  ws.on("close", () => {
+    if (currentMode && currentServer) {
+      delete servers[currentMode][currentServer].players[id];
+      broadcast();
     }
   });
-});
 
-function broadcast(server){
-  const msg=JSON.stringify({
-    type:"players",
-    server,
-    players:servers[server].players
-  });
+  function broadcast() {
+    const packet = JSON.stringify({
+      type: "players",
+      players: servers[currentMode][currentServer].players
+    });
 
-  wss.clients.forEach(c=>{
-    if(c.readyState===1) c.send(msg);
-  });
-}
-
-function getCounts(){
-  const list={};
-  for(let s in servers){
-    list[s]=Object.keys(servers[s].players).length;
+    wss.clients.forEach(c => {
+      if (c.readyState === 1) c.send(packet);
+    });
   }
-  return list;
-}
+});
