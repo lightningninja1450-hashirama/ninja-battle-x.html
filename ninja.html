@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ninja Arena X - Ninja.io Spinoff</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #05070f;
+      color: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #gameContainer {
+      border: 3px solid #3cffd0;
+      border-radius: 10px;
+      background: #0b0e1a;
+      padding: 10px;
+    }
+    canvas { background: linear-gradient(#151b3d, #070a18); display: block; }
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #3cffd0;
+    }
+    #info { text-align: center; font-size: 12px; margin-top: 6px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="hud">
+      <div id="health">HP: 100</div>
+      <div id="score">Score: 0</div>
+      <div id="dash">Dash: Ready</div>
+    </div>
+    <canvas id="game" width="1000" height="520"></canvas>
+    <div id="info">A/D Move • W/Space Jump • Shift Dash • Click Shoot • Wall Jump Enabled</div>
+  </div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+class Player {
+  constructor() {
+    this.x = 100; this.y = 400;
+    this.w = 30; this.h = 42;
+    this.vx = 0; this.vy = 0;
+    this.speed = 4;
+    this.jump = -11;
+    this.onGround = false;
+    this.hp = 100;
+    this.canDash = true;
+  }
+
+  update() {
+    this.vx = 0;
+    if (keys['a']) this.vx = -this.speed;
+    if (keys['d']) this.vx = this.speed;
+
+    if ((keys['w'] || keys[' ']) && (this.onGround || this.x <= 5 || this.x + this.w >= canvas.width - 5)) {
+      this.vy = this.jump;
+    }
+
+    if (keys['shift'] && this.canDash) {
+      this.vx *= 4;
+      this.canDash = false;
+      document.getElementById('dash').textContent = 'Dash: Cooldown';
+      setTimeout(() => {
+        this.canDash = true;
+        document.getElementById('dash').textContent = 'Dash: Ready';
+      }, 1200);
+    }
+
+    this.vy += 0.6;
+    this.x += this.vx;
+    this.y += this.vy;
+
+    if (this.y + this.h > canvas.height - 25) {
+      this.y = canvas.height - 25 - this.h;
+      this.vy = 0;
+      this.onGround = true;
+    } else this.onGround = false;
+
+    this.x = Math.max(0, Math.min(canvas.width - this.w, this.x));
+  }
+
+  draw() {
+    ctx.fillStyle = '#3cffd0';
+    ctx.fillRect(this.x, this.y, this.w, this.h);
+  }
+}
+
+class Enemy {
+  constructor() {
+    this.w = 30; this.h = 30;
+    this.x = canvas.width + Math.random() * 200;
+    this.y = canvas.height - 25 - this.h;
+    this.speed = 2 + Math.random() * 2;
+  }
+  update() { this.x -= this.speed; }
+  draw() { ctx.fillStyle = '#ff4b4b'; ctx.fillRect(this.x, this.y, this.w, this.h); }
+}
+
+class Shuriken {
+  constructor(x,y) { this.x=x; this.y=y; this.r=4; this.speed=9; }
+  update(){ this.x += this.speed; }
+  draw(){ ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill(); }
+}
+
+const player = new Player();
+const enemies = [];
+const shots = [];
+let spawnTimer = 0;
+let score = 0;
+
+addEventListener('click', () => shots.push(new Shuriken(player.x+player.w, player.y+player.h/2)));
+
+function collide(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+
+function loop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  player.update();
+  player.draw();
+
+  spawnTimer++;
+  if(spawnTimer>45){ enemies.push(new Enemy()); spawnTimer=0; }
+
+  enemies.forEach((e,i)=>{
+    e.update(); e.draw();
+    if(collide(player,e)){
+      player.hp--;
+      document.getElementById('health').textContent=`HP: ${player.hp}`;
+    }
+    if(e.x+e.w<0) enemies.splice(i,1);
+  });
+
+  shots.forEach((s,si)=>{
+    s.update(); s.draw();
+    enemies.forEach((e,ei)=>{
+      if(s.x>e.x&&s.x<e.x+e.w&&s.y>e.y&&s.y<e.y+e.h){
+        enemies.splice(ei,1);
+        shots.splice(si,1);
+        score+=10;
+        document.getElementById('score').textContent=`Score: ${score}`;
+      }
+    })
+  });
+
+  ctx.fillStyle='#1e2350';
+  ctx.fillRect(0,canvas.height-25,canvas.width,25);
+
+  if(player.hp>0) requestAnimationFrame(loop);
+  else {
+    ctx.fillStyle='white';
+    ctx.font='48px Arial';
+    ctx.fillText('GAME OVER', canvas.width/2-150, canvas.height/2);
+  }
+}
+loop();
+</script>
+</body>
+</html>
