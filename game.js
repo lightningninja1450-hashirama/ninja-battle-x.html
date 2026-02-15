@@ -144,6 +144,12 @@ function update() {
   }));
 }
 
+function collide() {
+  if (solidAt(currentMap, me.x, me.y)) {
+    me.vy = 0;
+  }
+}
+
 function draw() {
   if (!myId) return;
 
