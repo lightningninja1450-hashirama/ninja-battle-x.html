@@ -1,0 +1,57 @@
+body {
+  margin: 0;
+  background: radial-gradient(circle, #050505, #000);
+  font-family: Arial, Helvetica, sans-serif;
+  color: white;
+  overflow: hidden;
+}
+
+canvas {
+  display: none;
+  background: #111;
+}
+
+.menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  background: linear-gradient(#000, #060606);
+}
+
+.hidden { display: none; }
+
+button {
+  padding: 14px 35px;
+  font-size: 20px;
+  border: 2px solid #0ff;
+  background: black;
+  color: #0ff;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+button:hover {
+  background: #0ff;
+  color: black;
+}
+
+#servers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.server {
+  padding: 15px;
+  border: 2px solid white;
+  cursor: pointer;
+  background: #111;
+}
+
+.server:hover {
+  background: #333;
+}
