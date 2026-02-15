@@ -10,29 +10,33 @@ const server = app.listen(3000, () => {
 
 const wss = new WebSocket.Server({ server });
 
+// GAME SERVERS
 const MODES = ["ffa", "tdm", "ctf", "parkour"];
 
 let servers = {};
-MODES.forEach(mode => {
+
+for (let mode of MODES) {
   servers[mode] = {
     "Server 1": { players: {} },
     "Server 2": { players: {} },
-    "Server 3": { players: {} }
+    "Server 3": { players: {} },
+    "Server 4": { players: {} }
   };
-});
+}
 
+// CONNECTION
 wss.on("connection", ws => {
   let id = Math.random().toString(36).slice(2);
   let currentMode = null;
   let currentServer = null;
 
-  ws.send(JSON.stringify({ type: "hello" }));
-
   ws.on("message", msg => {
     const data = JSON.parse(msg);
 
+    // SEND SERVER LIST
     if (data.type === "getServers") {
       const list = {};
+
       for (let s in servers[data.mode]) {
         list[s] = Object.keys(servers[data.mode][s].players).length;
       }
@@ -43,12 +47,16 @@ wss.on("connection", ws => {
       }));
     }
 
+    // JOIN SERVER
     if (data.type === "join") {
       currentMode = data.mode;
       currentServer = data.server;
 
       servers[currentMode][currentServer].players[id] = {
-        id, x: 200, y: 300, hp: 100
+        id,
+        x: 100 + Math.random() * 800,
+        y: 200,
+        hp: 100
       };
 
       ws.send(JSON.stringify({
@@ -56,8 +64,11 @@ wss.on("connection", ws => {
         id,
         players: servers[currentMode][currentServer].players
       }));
+
+      broadcast();
     }
 
+    // MOVEMENT
     if (data.type === "move" && currentMode) {
       let p = servers[currentMode][currentServer].players[id];
       if (!p) return;
@@ -67,16 +78,19 @@ wss.on("connection", ws => {
       broadcast();
     }
 
+    // SHOOTING
     if (data.type === "shoot" && currentMode) {
       for (let pid in servers[currentMode][currentServer].players) {
         if (pid !== id) {
           let p = servers[currentMode][currentServer].players[pid];
-          if (Math.hypot(p.x - data.x, p.y - data.y) < 60) {
+          let dist = Math.hypot(p.x - data.x, p.y - data.y);
+
+          if (dist < 60) {
             p.hp -= 25;
             if (p.hp <= 0) {
               p.hp = 100;
-              p.x = Math.random()*900+100;
-              p.y = 300;
+              p.x = 100 + Math.random() * 800;
+              p.y = 200;
             }
           }
         }
