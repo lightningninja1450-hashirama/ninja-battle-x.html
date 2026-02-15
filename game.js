@@ -41,7 +41,12 @@ function openServers(m) {
   modeMenu.classList.add("hidden");
   serverMenu.classList.remove("hidden");
 
-  ws.send(JSON.stringify({ type: "getServers", mode }));
+  serversDiv.innerHTML = "Loading servers...";
+
+  ws.send(JSON.stringify({
+    type: "getServers",
+    mode: mode
+  }));
 }
 
 function backMain() {
