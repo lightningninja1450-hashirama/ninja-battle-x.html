@@ -8,27 +8,26 @@
 
 <div id="mainMenu" class="menu">
   <h1>⚔ ShadowStrike.io</h1>
-  <button onclick="openGamemode()">PLAY</button>
+  <button onclick="openModes()">PLAY</button>
 </div>
 
-<div id="gamemodeMenu" class="menu hidden">
-  <h2>Select Gamemode</h2>
+<div id="modeMenu" class="menu hidden">
+  <h2>Select Mode</h2>
   <button onclick="openServers('ffa')">Free For All</button>
   <button onclick="openServers('tdm')">Team Deathmatch</button>
-  <button onclick="openServers('ctf')">Capture the Flag</button>
+  <button onclick="openServers('ctf')">Capture The Flag</button>
   <button onclick="openServers('parkour')">Parkour</button>
-  <button onclick="backToMain()">⬅ Back</button>
+  <button onclick="backMain()">⬅ Back</button>
 </div>
 
 <div id="serverMenu" class="menu hidden">
-  <h2>Pick Server</h2>
+  <h2>Select Server</h2>
   <div id="servers"></div>
-  <button onclick="backToModes()">⬅ Back</button>
+  <button onclick="backModes()">⬅ Back</button>
 </div>
 
-<canvas id="game" width="1200" height="700"></canvas>
+<canvas id="game" width="1000" height="600"></canvas>
 
-<script src="maps.js"></script>
 <script src="game.js"></script>
 
 </body>
