@@ -1,9 +1,9 @@
 body {
   margin: 0;
   background: radial-gradient(circle, #050505, #000);
-  font-family: Arial, Helvetica, sans-serif;
   color: white;
-  overflow: hidden;
+  font-family: Arial;
+  text-align: center;
 }
 
 canvas {
@@ -19,14 +19,13 @@ canvas {
   justify-content: center;
   align-items: center;
   gap: 15px;
-  background: linear-gradient(#000, #060606);
 }
 
 .hidden { display: none; }
 
 button {
-  padding: 14px 35px;
-  font-size: 20px;
+  padding: 12px 30px;
+  font-size: 18px;
   border: 2px solid #0ff;
   background: black;
   color: #0ff;
@@ -43,13 +42,14 @@ button:hover {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 15px;
+  width: 350px;
 }
 
 .server {
   padding: 15px;
   border: 2px solid white;
-  cursor: pointer;
   background: #111;
+  cursor: pointer;
 }
 
 .server:hover {
