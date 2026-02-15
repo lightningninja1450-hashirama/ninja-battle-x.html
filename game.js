@@ -34,24 +34,45 @@ canvas.addEventListener("click", e => {
 // =====================
 // WEBSOCKET CONNECTION
 // =====================
-ws = new WebSocket("wss://YOUR_SERVER_URL"); // Replace with your backend URL
+function connectWebSocket() {
+  ws = new WebSocket("wss://ninja-battle-x-html.onrender.com"); // Replace with your Render server
 
-ws.onmessage = e => {
-  const data = JSON.parse(e.data);
+  ws.onopen = () => {
+    console.log("Connected to server!");
+  };
 
-  if (data.type === "serverList") renderServers(data.servers);
+  ws.onmessage = e => {
+    const data = JSON.parse(e.data);
 
-  if (data.type === "init") {
-    myId = data.id;
-    players = data.players;
-    currentServer = data.server;
-    currentMap = MAPS.find(m => m.name === data.mapObj) || MAPS[0];
-    canvas.style.display = "block";
-    document.getElementById("serverMenu").classList.add("hidden");
-  }
+    // Server list received
+    if (data.type === "serverList") renderServers(data.servers);
 
-  if (data.type === "players") players = data.players;
-};
+    // Player initialization
+    if (data.type === "init") {
+      myId = data.id;
+      players = data.players;
+      currentServer = data.server;
+      currentMap = MAPS.find(m => m.name === data.mapObj) || MAPS[0];
+      canvas.style.display = "block";
+      document.getElementById("serverMenu").classList.add("hidden");
+    }
+
+    // Player updates
+    if (data.type === "players") players = data.players;
+  };
+
+  ws.onclose = () => {
+    console.log("WebSocket closed. Reconnecting in 3 seconds...");
+    setTimeout(connectWebSocket, 3000);
+  };
+
+  ws.onerror = err => {
+    console.error("WebSocket error:", err);
+  };
+}
+
+// Connect immediately
+connectWebSocket();
 
 // =====================
 // GAME LOOP
@@ -59,10 +80,10 @@ ws.onmessage = e => {
 function update() {
   if (!myId) return;
 
-  // GRAVITY
+  // Gravity
   me.vy += 0.5;
 
-  // MOVEMENT
+  // Movement
   me.vx = 0;
   if (keys.a || keys["arrowleft"]) me.vx = -4;
   if (keys.d || keys["arrowright"]) me.vx = 4;
@@ -71,14 +92,16 @@ function update() {
   me.x += me.vx;
   me.y += me.vy;
 
-  // COLLISION WITH SOLID TILES
+  // Collision with solid tiles
   if (solidAt(currentMap, me.x, me.y + 40)) {
     me.y = Math.floor(me.y / TILE) * TILE;
     me.vy = 0;
   }
 
-  // SEND MOVEMENT TO SERVER
-  ws.send(JSON.stringify({ type: "move", x: me.x, y: me.y }));
+  // Send movement to server
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "move", x: me.x, y: me.y }));
+  }
 
   updateBullets();
 }
@@ -102,7 +125,6 @@ function draw() {
     ctx.fillRect(p.x, p.y - 8, p.hp / 2, 4);
   }
 
-  // Draw bullets
   drawBullets();
 }
 
@@ -148,7 +170,14 @@ function openServers(m) {
   modeMenu.classList.add("hidden");
   serverMenu.classList.remove("hidden");
   serversDiv.innerHTML = "Loading servers...";
-  ws.send(JSON.stringify({ type: "getServers", mode }));
+
+  // Only send getServers if WebSocket is open
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "getServers", mode }));
+  } else {
+    console.log("WebSocket not ready, retrying in 500ms...");
+    setTimeout(() => openServers(m), 500);
+  }
 }
 
 function backMain() {
@@ -161,6 +190,7 @@ function backModes() {
   modeMenu.classList.remove("hidden");
 }
 
+// Render server list
 function renderServers(list) {
   serversDiv.innerHTML = "";
   for (let s in list) {
@@ -172,6 +202,11 @@ function renderServers(list) {
   }
 }
 
+// Join server
 function joinServer(server) {
-  ws.send(JSON.stringify({ type: "join", server, mode }));
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "join", server, mode }));
+  } else {
+    console.log("WebSocket not ready, cannot join server yet");
+  }
 }
