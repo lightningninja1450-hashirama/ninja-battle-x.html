@@ -1,78 +1,123 @@
+let ws;
+let myId;
+let players = {};
+let currentServer = null;
+let currentMode = null;
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let ws;
-let myId = null;
-let players = {};
-let mode = null;
+const mainMenu = document.getElementById("mainMenu");
+const gamemodeMenu = document.getElementById("gamemodeMenu");
+const serverMenu = document.getElementById("serverMenu");
+const serversDiv = document.getElementById("servers");
 
-function startGame(m) {
-  mode = m;
+let me = { x: 200, y: 200, vx:0, vy:0, hp:100 };
 
-  document.getElementById("menu").style.display = "none";
-  document.getElementById("hud").style.display = "flex";
-  canvas.style.display = "block";
+ws = new WebSocket(`ws://${location.host}`);
 
-  ws = new WebSocket("ws://localhost:3000");
+ws.onmessage = e => {
+  const data = JSON.parse(e.data);
 
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type:"join", mode }));
-  };
+  if (data.type === "serverList") renderServers(data.servers);
 
-  ws.onmessage = e => {
-    const msg = JSON.parse(e.data);
+  if (data.type === "init") {
+    myId = data.id;
+    players = data.players;
+    currentServer = data.server;
 
-    if (msg.type === "init") {
-      myId = msg.id;
-    }
+    serverMenu.classList.add("hidden");
+    canvas.style.display = "block";
+  }
 
-    if (msg.type === "state") {
-      players = msg.players;
-    }
-  };
+  if (data.type === "players" && data.server === currentServer) {
+    players = data.players;
+  }
+};
 
-  loop();
+function openGamemode() {
+  mainMenu.classList.add("hidden");
+  gamemodeMenu.classList.remove("hidden");
+}
+
+function openServers(mode) {
+  currentMode = mode;
+  gamemodeMenu.classList.add("hidden");
+  serverMenu.classList.remove("hidden");
+  ws.send(JSON.stringify({ type:"getServers", mode }));
+}
+
+function backToMain() {
+  gamemodeMenu.classList.add("hidden");
+  mainMenu.classList.remove("hidden");
+}
+
+function backToModes() {
+  serverMenu.classList.add("hidden");
+  gamemodeMenu.classList.remove("hidden");
+}
+
+function renderServers(list) {
+  serversDiv.innerHTML = "";
+  for (let s in list) {
+    const div = document.createElement("div");
+    div.className = "server";
+    div.innerHTML = `${s}<br>Players: ${list[s]}`;
+    div.onclick = () => joinServer(s);
+    serversDiv.appendChild(div);
+  }
+}
+
+function joinServer(server) {
+  ws.send(JSON.stringify({ type:"join", server, mode:currentMode }));
 }
 
 const keys = {};
-addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-let me = { x:200, y:100, vx:0, vy:0 };
+canvas.onclick = () => shoot();
+
+function shoot(){
+  ws.send(JSON.stringify({ type:"shoot", x:me.x, y:me.y }));
+}
+
+function loop() {
+  requestAnimationFrame(loop);
+  update();
+  draw();
+}
+loop();
 
 function update() {
+  if(!currentServer) return;
+
   me.vx = 0;
-  if (keys.a) me.vx = -4;
-  if (keys.d) me.vx = 4;
-  if (keys.w && me.y > 100) me.vy = -10;
+  if(keys.a) me.vx = -5;
+  if(keys.d) me.vx = 5;
+  if(keys.w && me.y > 150) me.vy = -10;
 
   me.vy += 0.5;
   me.x += me.vx;
   me.y += me.vy;
 
-  if (me.y > 550) {
-    me.y = 550;
-    me.vy = 0;
-  }
+  if(me.y > 620){ me.y = 620; me.vy = 0; }
 
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({ type:"update", data: me }));
-  }
+  ws.send(JSON.stringify({ type:"move", x:me.x, y:me.y }));
 }
 
 function draw() {
+  if(!currentServer) return;
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  for (const id in players) {
-    const p = players[id];
+  for(let id in players){
+    let p = players[id];
 
-    ctx.fillStyle = id === myId ? "#3cffd0" : "#ff4b4b";
+    ctx.fillStyle = id===myId ? "#00ffff":"#ff3c3c";
     ctx.fillRect(p.x,p.y,30,40);
-  }
-}
 
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
+    ctx.fillStyle="lime";
+    ctx.fillRect(p.x,p.y-8,p.hp/2,4);
+  }
 }
