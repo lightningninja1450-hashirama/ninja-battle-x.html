@@ -1,18 +1,17 @@
 let ws;
 let myId;
 let players = {};
-let currentServer = null;
-let currentMode = null;
+let mode = null;
+
+const mainMenu = document.getElementById("mainMenu");
+const modeMenu = document.getElementById("modeMenu");
+const serverMenu = document.getElementById("serverMenu");
+const serversDiv = document.getElementById("servers");
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const mainMenu = document.getElementById("mainMenu");
-const gamemodeMenu = document.getElementById("gamemodeMenu");
-const serverMenu = document.getElementById("serverMenu");
-const serversDiv = document.getElementById("servers");
-
-let me = { x: 200, y: 200, vx:0, vy:0, hp:100 };
+let me = { x: 500, y: 300 };
 
 ws = new WebSocket(`ws://${location.host}`);
 
@@ -24,37 +23,35 @@ ws.onmessage = e => {
   if (data.type === "init") {
     myId = data.id;
     players = data.players;
-    currentServer = data.server;
 
     serverMenu.classList.add("hidden");
     canvas.style.display = "block";
   }
 
-  if (data.type === "players" && data.server === currentServer) {
-    players = data.players;
-  }
+  if (data.type === "players") players = data.players;
 };
 
-function openGamemode() {
+function openModes() {
   mainMenu.classList.add("hidden");
-  gamemodeMenu.classList.remove("hidden");
+  modeMenu.classList.remove("hidden");
 }
 
-function openServers(mode) {
-  currentMode = mode;
-  gamemodeMenu.classList.add("hidden");
+function openServers(m) {
+  mode = m;
+  modeMenu.classList.add("hidden");
   serverMenu.classList.remove("hidden");
-  ws.send(JSON.stringify({ type:"getServers", mode }));
+
+  ws.send(JSON.stringify({ type: "getServers", mode }));
 }
 
-function backToMain() {
-  gamemodeMenu.classList.add("hidden");
+function backMain() {
+  modeMenu.classList.add("hidden");
   mainMenu.classList.remove("hidden");
 }
 
-function backToModes() {
+function backModes() {
   serverMenu.classList.add("hidden");
-  gamemodeMenu.classList.remove("hidden");
+  modeMenu.classList.remove("hidden");
 }
 
 function renderServers(list) {
@@ -69,18 +66,20 @@ function renderServers(list) {
 }
 
 function joinServer(server) {
-  ws.send(JSON.stringify({ type:"join", server, mode:currentMode }));
+  ws.send(JSON.stringify({
+    type: "join",
+    server,
+    mode
+  }));
 }
 
 const keys = {};
-document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-canvas.onclick = () => shoot();
-
-function shoot(){
-  ws.send(JSON.stringify({ type:"shoot", x:me.x, y:me.y }));
-}
+canvas.onclick = () => {
+  ws.send(JSON.stringify({ type: "shoot", x: me.x, y: me.y }));
+};
 
 function loop() {
   requestAnimationFrame(loop);
@@ -90,34 +89,32 @@ function loop() {
 loop();
 
 function update() {
-  if(!currentServer) return;
+  if (!myId) return;
 
-  me.vx = 0;
-  if(keys.a) me.vx = -5;
-  if(keys.d) me.vx = 5;
-  if(keys.w && me.y > 150) me.vy = -10;
+  if (keys.a) me.x -= 4;
+  if (keys.d) me.x += 4;
+  if (keys.w) me.y -= 4;
+  if (keys.s) me.y += 4;
 
-  me.vy += 0.5;
-  me.x += me.vx;
-  me.y += me.vy;
-
-  if(me.y > 620){ me.y = 620; me.vy = 0; }
-
-  ws.send(JSON.stringify({ type:"move", x:me.x, y:me.y }));
+  ws.send(JSON.stringify({
+    type: "move",
+    x: me.x,
+    y: me.y
+  }));
 }
 
 function draw() {
-  if(!currentServer) return;
+  if (!myId) return;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  for(let id in players){
-    let p = players[id];
+  for (let id in players) {
+    const p = players[id];
 
-    ctx.fillStyle = id===myId ? "#00ffff":"#ff3c3c";
-    ctx.fillRect(p.x,p.y,30,40);
+    ctx.fillStyle = id === myId ? "#00ffff" : "#ff4040";
+    ctx.fillRect(p.x, p.y, 30, 40);
 
-    ctx.fillStyle="lime";
-    ctx.fillRect(p.x,p.y-8,p.hp/2,4);
+    ctx.fillStyle = "lime";
+    ctx.fillRect(p.x, p.y - 8, p.hp / 2, 4);
   }
 }
