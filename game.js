@@ -13,7 +13,7 @@ const ctx = canvas.getContext("2d");
 
 let me = { x: 500, y: 300 };
 
-ws = new WebSocket(`ws://${location.host}`);
+ws = new WebSocket("wss://ninja-battle-x-html.onrender.com");
 
 ws.onmessage = e => {
   const data = JSON.parse(e.data);
