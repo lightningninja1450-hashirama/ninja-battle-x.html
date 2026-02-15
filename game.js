@@ -11,7 +11,7 @@ let currentMap = null;
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let me = { x: 200, y: 200, vx: 0, vy: 0, hp: 100 };
+let me = { x: 200, y: 200, vx: 0, vy: 0, hp: 100, crouch: false };
 let bullets = [];
 
 const keys = {};
@@ -22,24 +22,26 @@ const keys = {};
 document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-// Left click shooting
+// =====================
+// MOUSE SHOOTING
+// =====================
 canvas.addEventListener("click", e => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
   const angle = Math.atan2(my - me.y, mx - me.x);
-  ws.send(JSON.stringify({ type: "shoot", x: me.x, y: me.y, angle }));
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: "shoot", x: me.x, y: me.y, angle }));
+  }
 });
 
 // =====================
 // WEBSOCKET CONNECTION
 // =====================
 function connectWebSocket() {
-  ws = new WebSocket("wss://ninja-battle-x-html.onrender.com"); // Replace with your Render server
+  ws = new WebSocket("wss://ninja-battle-x-html.onrender.com"); // replace with your server
 
-  ws.onopen = () => {
-    console.log("Connected to server!");
-  };
+  ws.onopen = () => console.log("Connected to server!");
 
   ws.onmessage = e => {
     const data = JSON.parse(e.data);
@@ -47,7 +49,7 @@ function connectWebSocket() {
     // Server list received
     if (data.type === "serverList") renderServers(data.servers);
 
-    // Player initialization
+    // Player init
     if (data.type === "init") {
       myId = data.id;
       players = data.players;
@@ -62,13 +64,11 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
-    console.log("WebSocket closed. Reconnecting in 3 seconds...");
+    console.log("Disconnected. Reconnecting in 3 seconds...");
     setTimeout(connectWebSocket, 3000);
   };
 
-  ws.onerror = err => {
-    console.error("WebSocket error:", err);
-  };
+  ws.onerror = err => console.error("WebSocket error:", err);
 }
 
 // Connect immediately
@@ -78,23 +78,39 @@ connectWebSocket();
 // GAME LOOP
 // =====================
 function update() {
-  if (!myId) return;
+  if (!myId || !currentMap) return;
 
   // Gravity
   me.vy += 0.5;
 
-  // Movement
+  // Horizontal movement
   me.vx = 0;
   if (keys.a || keys["arrowleft"]) me.vx = -4;
   if (keys.d || keys["arrowright"]) me.vx = 4;
-  if ((keys.w || keys["arrowup"]) && solidAt(currentMap, me.x, me.y + 41)) me.vy = -10;
 
+  // Crouch
+  me.crouch = keys["control"];
+
+  // Check if standing on ground (both bottom corners)
+  const onGround = solidAt(currentMap, me.x, me.y + 40) || solidAt(currentMap, me.x + 29, me.y + 40);
+
+  // Jump (spacebar)
+  if (keys[" "] && onGround) {
+    me.vy = -10;
+  }
+
+  // Update position
   me.x += me.vx;
   me.y += me.vy;
 
-  // Collision with solid tiles
-  if (solidAt(currentMap, me.x, me.y + 40)) {
+  // Vertical collision (floor)
+  if (onGround && me.vy >= 0) {
     me.y = Math.floor(me.y / TILE) * TILE;
+    me.vy = 0;
+  }
+
+  // Ceiling collision
+  if (solidAt(currentMap, me.x, me.y) || solidAt(currentMap, me.x + 29, me.y)) {
     me.vy = 0;
   }
 
@@ -118,7 +134,10 @@ function draw() {
   for (let id in players) {
     const p = players[id];
     ctx.fillStyle = id === myId ? "#0ff" : "#f33";
-    ctx.fillRect(p.x, p.y, 30, 40);
+
+    // Crouch height
+    const height = p.crouch ? 20 : 40;
+    ctx.fillRect(p.x, p.y + (40 - height), 30, height);
 
     // HP bar
     ctx.fillStyle = "lime";
@@ -171,7 +190,6 @@ function openServers(m) {
   serverMenu.classList.remove("hidden");
   serversDiv.innerHTML = "Loading servers...";
 
-  // Only send getServers if WebSocket is open
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: "getServers", mode }));
   } else {
